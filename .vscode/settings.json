@@ -1,0 +1,7 @@
+
+{
+  "editor.renderLineHighlight": "none",
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.formatOnSave": true,
+  // Suas outras configurações aqui
+}
