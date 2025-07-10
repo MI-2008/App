@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect, useRoute } from '@react-navigation/native'; // Adicionado useRoute
+import { useFocusEffect, useRoute } from '@react-navigation/native';
 
 // Definindo o tipo para as props de navegação.
 interface MedicinesScreenProps {
@@ -25,9 +25,8 @@ const MEDICINES_STORAGE_KEY = '@my_medicines';
 export default function MedicinesScreen({ navigation }: MedicinesScreenProps) {
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const route = useRoute(); // Hook para obter a rota atual
+  const route = useRoute();
 
-  // Função para carregar os medicamentos do AsyncStorage
   const loadMedicines = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -45,7 +44,6 @@ export default function MedicinesScreen({ navigation }: MedicinesScreenProps) {
     }
   }, []);
 
-  // Recarregar medicamentos ao focar na tela
   useFocusEffect(
     useCallback(() => {
       loadMedicines();
@@ -53,7 +51,6 @@ export default function MedicinesScreen({ navigation }: MedicinesScreenProps) {
     }, [loadMedicines])
   );
 
-  // Função para remover um medicamento
   const removeMedicine = async (id: string) => {
     Alert.alert(
       "Confirmar Exclusão",
@@ -82,20 +79,18 @@ export default function MedicinesScreen({ navigation }: MedicinesScreenProps) {
     );
   };
 
-  // Determinar se o botão está ativo baseado na rota atual
   const isActive = (routeName: string) => {
     return route.name === routeName;
   };
 
   return (
     <View style={styles.container}>
-      {/* Header - Logo e Slogan */}
       <View style={styles.header}>
         <Text style={styles.logoText}>💡Lembrete Medicamentos💡</Text>
         <Text style={styles.sloganText}></Text>
       </View>
 
-      {/* Navigation Bar */}
+      {/* Barra de Navegação Corrigida */}
       <View style={styles.navigationBar}>
         <View style={styles.navRow}>
           <TouchableOpacity 
@@ -107,10 +102,11 @@ export default function MedicinesScreen({ navigation }: MedicinesScreenProps) {
             </Text>
           </TouchableOpacity>
           <TouchableOpacity 
-            style={isActive('MyMedicines') ? styles.navItemActive : styles.navItem} 
-            onPress={() => navigation.navigate('MyMedicines')}
+            style={isActive('Medicines') ? styles.navItemActive : styles.navItem} 
+            onPress={() => navigation.navigate('Medicines')}
           >
-            <Text style={isActive('MyMedicines') ? styles.navItemActive : styles.navText}>
+            {/* Corrigido: estilo do texto para medicamentos */}
+            <Text style={isActive('Medicines') ? styles.navTextActive : styles.navText}>
               💊 Medicamentos
             </Text>
           </TouchableOpacity>
@@ -129,6 +125,7 @@ export default function MedicinesScreen({ navigation }: MedicinesScreenProps) {
             style={isActive('History') ? styles.navItemActive : styles.navItem} 
             onPress={() => navigation.navigate('History')}
           >
+            {/* Corrigido: estilo do texto para histórico */}
             <Text style={isActive('History') ? styles.navTextActive : styles.navText}>
               ⏰ Histórico
             </Text>
@@ -243,7 +240,7 @@ const styles = StyleSheet.create({
   navItemActive: {
     flex: 1,
     alignItems: 'center',
-    backgroundColor: '#E6E6FA', // Lilás acinzentado para item ativo
+    backgroundColor: '#E6E6FA',
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 20,
