@@ -1,42 +1,42 @@
 // Este arquivo é o componente da tela "Lembretes" (Dashboard de Medicamentos) em TSX.
-import React, { useState, useEffect, useCallback, JSX } from 'react'; // 'JSX' removido
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // Importar AsyncStorage
-import { useFocusEffect } from '@react-navigation/native'; // Para recarregar dados ao focar na tela
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 
-// Definindo a interface para o objeto de Medicamento (consistente com AddMedicineScreen e MedicinesScreen)
+// Definindo a interface para o objeto de Medicamento
 interface Medicine {
-  id: string; // ID único para cada medicamento
+  id: string;
   medicineName: string;
-  dosage: string; // Quantidade de comprimidos
+  dosage: string;
   frequency: string;
-  time: string; // Horário no formato HH:MM (ex: "10:30")
-  customFrequencyDate?: string; // Data específica se a frequência for 'custom_date' (ex: "DD/MM/AAAA")
+  time: string;
+  customFrequencyDate?: string;
   observations: string;
-  notificationId?: string; // ID da notificação agendada
+  notificationId?: string;
 }
 
-// Definindo a interface para o objeto de Consulta (consistente com ScheduleAppointmentScreen)
+// Definindo a interface para o objeto de Consulta
 interface Appointment {
-  id: string; // ID único para cada consulta
+  id: string;
   doctorName: string;
-  appointmentDate: string; // Data no formato local (DD/MM/AAAA)
-  appointmentTime: string; // Horário no formato HH:MM
+  appointmentDate: string;
+  appointmentTime: string;
   observations: string;
-  notificationId?: string; // ID da notificação agendada
+  notificationId?: string;
 }
 
-const MEDICINES_STORAGE_KEY = '@my_medicines'; // Chave para armazenar os medicamentos no AsyncStorage
-const APPOINTMENTS_STORAGE_KEY = '@my_appointments'; // Chave para armazenar as consultas no AsyncStorage
+const MEDICINES_STORAGE_KEY = '@my_medicines';
+const APPOINTMENTS_STORAGE_KEY = '@my_appointments';
 
 // Definindo o tipo para as props de navegação.
 interface MedicineDashboardScreenProps {
-  navigation: any; // Em um projeto real, você tiparia mais especificamente as rotas.
+  navigation: any;
 }
 
-export default function MedicineDashboardScreen({ navigation }: MedicineDashboardScreenProps): JSX.Element {
-  const [todaysReminders, setTodaysReminders] = useState<any[]>([]); // Pode conter medicamentos e consultas
-  const [upcomingReminders, setUpcomingReminders] = useState<any[]>([]); // Pode conter medicamentos e consultas
+export default function MedicineDashboardScreen({ navigation }: MedicineDashboardScreenProps) {
+  const [todaysReminders, setTodaysReminders] = useState<any[]>([]);
+  const [upcomingReminders, setUpcomingReminders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Função para formatar a hora para exibição
@@ -56,12 +56,13 @@ export default function MedicineDashboardScreen({ navigation }: MedicineDashboar
   // Helper para verificar se a data é no futuro
   const isFutureDate = (someDate: Date) => {
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Zera a hora para comparar apenas a data
-    someDate.setHours(0, 0, 0, 0); // Zera a hora para comparar apenas a data
-    return someDate.getTime() > today.getTime();
+    const dateToCheck = new Date(someDate);
+    today.setHours(0, 0, 0, 0);
+    dateToCheck.setHours(0, 0, 0, 0);
+    return dateToCheck.getTime() > today.getTime();
   };
 
-  // Função para carregar e filtrar todos os lembretes (medicamentos e consultas)
+  // Função para carregar e filtrar todos os lembretes
   const loadAndFilterAllReminders = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -78,7 +79,7 @@ export default function MedicineDashboardScreen({ navigation }: MedicineDashboar
       // Processar Medicamentos
       allMedicines.forEach(medicine => {
         const [medHours, medMinutes] = medicine.time.split(':').map(Number);
-        const medicineTimeToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), medHours, medMinutes, 0, 0);
+        const medicineTimeToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), medHours, medMinutes);
 
         if (medicine.frequency === 'daily') {
           let nextOccurrence = new Date(medicineTimeToday);
@@ -98,7 +99,6 @@ export default function MedicineDashboardScreen({ navigation }: MedicineDashboar
             upcomingRemindersList.push({ ...medicine, type: 'medicine' });
           }
         } else {
-          // Para outras frequências (e.g., 'every6hours', 'weekly') - simplificado para hoje futuro
           if (medicineTimeToday.getTime() > now.getTime()) {
             todayRemindersList.push({ ...medicine, type: 'medicine' });
           }
@@ -112,15 +112,13 @@ export default function MedicineDashboardScreen({ navigation }: MedicineDashboar
         const appointmentFullDate = new Date(year, month - 1, day, apptHours, apptMinutes);
 
         if (isToday(appointmentFullDate) && appointmentFullDate.getTime() > now.getTime()) {
-          // Se for hoje e o horário ainda não passou
           todayRemindersList.push({ ...appointment, type: 'appointment' });
         } else if (isFutureDate(appointmentFullDate)) {
-          // Se for uma data futura
           upcomingRemindersList.push({ ...appointment, type: 'appointment' });
         }
       });
 
-      // Ordenar lembretes de hoje por hora (combinando medicamentos e consultas)
+      // Ordenar lembretes de hoje por hora
       todayRemindersList.sort((a, b) => {
         const timeA = a.type === 'medicine' ? a.time : a.appointmentTime;
         const timeB = b.type === 'medicine' ? b.time : b.appointmentTime;
@@ -130,7 +128,7 @@ export default function MedicineDashboardScreen({ navigation }: MedicineDashboar
         return mA - mB;
       });
 
-      // Ordenar próximos lembretes por data e depois por hora (combinando medicamentos e consultas)
+      // Ordenar próximos lembretes por data e hora
       upcomingRemindersList.sort((a, b) => {
         const dateA = a.type === 'medicine' ? a.customFrequencyDate : a.appointmentDate;
         const timeA = a.type === 'medicine' ? a.time : a.appointmentTime;
@@ -151,20 +149,18 @@ export default function MedicineDashboardScreen({ navigation }: MedicineDashboar
       setUpcomingReminders(upcomingRemindersList);
 
     } catch (error) {
-      console.error("Erro ao carregar e filtrar todos os lembretes:", error);
+      console.error("Erro ao carregar lembretes:", error);
       Alert.alert("Erro", "Não foi possível carregar seus lembretes.");
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  // Usa useFocusEffect para recarregar os lembretes sempre que a tela é focada
+  // Recarregar ao focar na tela
   useFocusEffect(
     useCallback(() => {
       loadAndFilterAllReminders();
-      return () => {
-        // Opcional: qualquer limpeza ao sair do foco da tela
-      };
+      return () => {};
     }, [loadAndFilterAllReminders])
   );
 
@@ -178,9 +174,9 @@ export default function MedicineDashboardScreen({ navigation }: MedicineDashboar
             <Text style={styles.reminderDetails}>
               {item.dosage} ({item.frequency === 'custom_date' ? item.customFrequencyDate : 'Diário'})
             </Text>
-            {item.observations ? (
+            {item.observations && (
               <Text style={styles.reminderObservations}>Obs: {item.observations}</Text>
-            ) : null}
+            )}
           </View>
         </View>
       );
@@ -193,14 +189,14 @@ export default function MedicineDashboardScreen({ navigation }: MedicineDashboar
             <Text style={styles.reminderDetails}>
               Horário: {formatTime(item.appointmentTime)}
             </Text>
-            {item.observations ? (
+            {item.observations && (
               <Text style={styles.reminderObservations}>Obs: {item.observations}</Text>
-            ) : null}
+            )}
           </View>
         </View>
       );
     }
-    return null; // Caso algum tipo inesperado
+    return null;
   };
 
   return (
@@ -210,22 +206,30 @@ export default function MedicineDashboardScreen({ navigation }: MedicineDashboar
         <Text style={styles.sloganText}>Seu assistente pessoal para medicamentos e consultas</Text>
       </View>
       
-     <View style={styles.navigationBar}>
+      <View style={styles.navigationBar}>
         <View style={styles.navRow}>
-          <View style={styles.navItemActive}> {/* Item "Dashboard" ativo */}
-            <Text style={styles.navTextActive}>📱Tela inicial</Text> {/* Mantido conforme sua solicitação */}
+          <View style={styles.navItemActive}>
+            <Text style={styles.navTextActive}>📱Tela inicial</Text>
           </View>
-          <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Medicines')}>
+          <TouchableOpacity 
+            style={styles.navItem} 
+            onPress={() => navigation.navigate('Medicines')}
+          >
             <Text style={styles.navText}>💊 Medicamentos</Text> 
           </TouchableOpacity>
         </View>
       
-        {/* Segunda linha de botões */}
         <View style={styles.navRow}>
-          <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('MyAppointments')}>
+          <TouchableOpacity 
+            style={styles.navItem} 
+            onPress={() => navigation.navigate('MyAppointments')}
+          >
             <Text style={styles.navText}>🗓️ Consultas</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('History')}>
+          <TouchableOpacity 
+            style={styles.navItem} 
+            onPress={() => navigation.navigate('History')}
+          >
             <Text style={styles.navText}>⏰ Histórico</Text>
           </TouchableOpacity>
         </View>
@@ -249,10 +253,10 @@ export default function MedicineDashboardScreen({ navigation }: MedicineDashboar
                 <Text style={styles.noRemindersText}>Nenhum lembrete para hoje por enquanto.</Text>
               </View>
             ) : (
-              todaysReminders.map((reminder) => renderReminderItem(reminder))
+              todaysReminders.map(renderReminderItem)
             )}
 
-            {/* Próximos Lembretes (Medicamentos e Consultas) */}
+            {/* Próximos Lembretes */}
             <Text style={styles.sectionTitle}>Próximos Lembretes</Text>
             {upcomingReminders.length === 0 ? (
               <View style={styles.noRemindersContainer}>
@@ -260,7 +264,7 @@ export default function MedicineDashboardScreen({ navigation }: MedicineDashboar
                 <Text style={styles.noRemindersText}>Nenhum lembrete futuro agendado.</Text>
               </View>
             ) : (
-              upcomingReminders.map((reminder) => renderReminderItem(reminder))
+              upcomingReminders.map(renderReminderItem)
             )}
           </>
         )}
@@ -272,27 +276,26 @@ export default function MedicineDashboardScreen({ navigation }: MedicineDashboar
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F0F2F5', // Cor de fundo suave, baseada na imagem
+    backgroundColor: '#F0F2F5',
   },
   header: {
     alignItems: 'center',
-    paddingVertical: 30, // Aumentado para 30 para empurrar o título para baixo
-    backgroundColor: '#F0F2F5', // Fundo do cabeçalho
+    paddingVertical: 30,
+    backgroundColor: '#F0F2F5',
   },
   logoText: {
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: 'bold',
-    color: '#295700', // Cor vibrante para o logo (roxo)
-    marginBottom: 40,
-    marginTop:49,
+    color: '#295700',
+    marginBottom: 20,
+    marginTop: 4,
   },
   sloganText: {
     fontSize: 20,
     color: '#666',
-    textAlign:'center'
-   
+    textAlign: 'center',
   },
-   dashboardTitle: {
+  dashboardTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#333',
@@ -300,14 +303,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   navigationBar: {
-    flexDirection: 'column', // Alterado para coluna para as linhas de botões
+    flexDirection: 'column',
     backgroundColor: '#FFF',
     paddingVertical: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#EEE',
     marginBottom: 20,
     marginHorizontal: 10,
-    borderRadius: 15, // Cantos arredondados para a barra de navegação
+    borderRadius: 15,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -315,27 +318,27 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   navRow: {
-    flexDirection: 'row', // Cada linha de botões é uma linha
-    justifyContent: 'space-around', // Distribui os itens igualmente
-    marginBottom: 10, // Espaço entre as linhas de botões
-    paddingHorizontal: 10, // Espaçamento horizontal dentro da linha
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 10,
+    paddingHorizontal: 10,
   },
   navItem: {
-    flex: 1, // Faz os itens ocuparem o mesmo espaço
+    flex: 1,
     alignItems: 'center',
     paddingHorizontal: 15,
     paddingVertical: 8,
-    borderRadius: 20, // Mais redondo para os botões
-    marginHorizontal: 5, // Espaço entre os botões na mesma linha
+    borderRadius: 20,
+    marginHorizontal: 5,
   },
   navItemActive: {
-    flex: 1, // Faz os itens ocuparem o mesmo espaço
+    flex: 1,
     alignItems: 'center',
-    backgroundColor: '#E6E6FA', // Fundo claro para o item ativo (lavanda)
+    backgroundColor: '#E6E6FA',
     paddingHorizontal: 15,
     paddingVertical: 8,
-    borderRadius: 20, // Mais redondo para o botão ativo
-    marginHorizontal: 5, // Espaço entre os botões na mesma linha
+    borderRadius: 20,
+    marginHorizontal: 5,
   },
   navText: {
     fontSize: 20,
@@ -344,79 +347,14 @@ const styles = StyleSheet.create({
   },
   navTextActive: {
     fontSize: 20,
-    color: '#295700', // Cor do texto do item ativo
+    color: '#295700',
     fontWeight: 'bold',
   },
   scrollViewContent: {
     paddingHorizontal: 15,
     paddingBottom: 20,
   },
-  statsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  statCard: {
-    backgroundColor: '#FFF',
-    borderRadius: 15,
-    padding: 15,
-    width: '31%', // Aproximadamente um terço da largura para 3 cards por linha
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  statCardTitle: {
-    fontSize: 14,
-    color: '#555',
-    textAlign: 'center',
-    marginBottom: 5,
-  },
-  statCardValue: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#295700', // Cor do valor principal
-    marginBottom: 5,
-  },
-  statCardIcon: {
-    fontSize: 20,
-    color: '#295700',
-  },
-  detailCardsContainer: {
-    flexDirection: 'column',
-  },
-  detailCard: {
-    backgroundColor: '#FFF',
-    borderRadius: 15,
-    padding: 20,
-    marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  detailCardTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#295700',
-    marginBottom: 10,
-  },
-  detailCardIcon: {
-    fontSize: 30,
-    color: '#8A2BE2',
-    marginBottom: 10,
-  },
-  detailCardText: {
-    fontSize: 16,
-    color: '#777',
-  },
-   loadingContainer: {
+  loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
@@ -467,20 +405,20 @@ const styles = StyleSheet.create({
   reminderTime: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#8A2BE2', // Cor do tempo/data do lembrete
-    minWidth: 80, // Garante que o tempo tenha um espaço mínimo
+    color: '#8A2BE2',
+    minWidth: 80,
     marginRight: 10,
     textAlign: 'right',
   },
   reminderInfo: {
-    flex: 1, // Ocupa o espaço restante
+    flex: 1,
   },
   reminderName: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
   },
-  reminderDosage: {
+  reminderDetails: {
     fontSize: 14,
     color: '#666',
     marginTop: 2,
@@ -500,10 +438,5 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#EEE',
     paddingBottom: 5,
-  },
-    reminderDetails: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 2,
   },
 });

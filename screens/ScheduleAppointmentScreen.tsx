@@ -1,12 +1,12 @@
 // Este arquivo é o componente da tela "Agendar Consulta" em TSX.
-import React, { useState, useEffect, JSX } from 'react'; // Adicionado useEffect
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Platform, Alert } from 'react-native';
-// import { Picker } from '@react-native-picker/picker'; // Removido, pois Especialidade foi removida
-import DateTimePicker from '@react-native-community/datetimepicker'; 
-import AsyncStorage from '@react-native-async-storage/async-storage'; // Importar AsyncStorage
-import * as Notifications from 'expo-notifications'; // Importar expo-notifications
+import DateTimePicker from '@react-native-community/datetimepicker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
+import { useRoute } from '@react-navigation/native';
 
-// Configuração para lidar com notificações quando o app está em foreground
+// Configuração para lidar com notificações
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -17,33 +17,31 @@ Notifications.setNotificationHandler({
 
 // Definindo a interface para o objeto de Consulta
 interface Appointment {
-  id: string; // ID único para cada consulta
+  id: string;
   doctorName: string;
-  // specialty: string; // Removido
-  appointmentDate: string; // Data no formato local (DD/MM/AAAA)
-  appointmentTime: string; // Horário no formato HH:MM
-  // location: string; // Removido
+  appointmentDate: string;
+  appointmentTime: string;
   observations: string;
-  notificationId?: string; // ID da notificação agendada
+  notificationId?: string;
 }
 
-const APPOINTMENTS_STORAGE_KEY = '@my_appointments'; // Chave para armazenar as consultas no AsyncStorage
+const APPOINTMENTS_STORAGE_KEY = '@my_appointments';
 
 // Definindo o tipo para as props de navegação.
 interface ScheduleAppointmentScreenProps {
-  navigation: any; // Em um projeto real, você tiparia mais especificamente as rotas.
+  navigation: any;
 }
 
-export default function ScheduleAppointmentScreen({ navigation }: ScheduleAppointmentScreenProps): JSX.Element {
+export default function ScheduleAppointmentScreen({ navigation }: ScheduleAppointmentScreenProps) {
   const [doctorName, setDoctorName] = useState<string>('');
   const [appointmentDate, setAppointmentDate] = useState<Date>(new Date());
   const [appointmentTime, setAppointmentTime] = useState<Date>(new Date());
   const [observations, setObservations] = useState<string>('');
-  
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
   const [showTimePicker, setShowTimePicker] = useState<boolean>(false);
+  const route = useRoute();
 
-  // Solicita permissões de notificação ao carregar a tela
+  // Solicita permissões de notificação
   useEffect(() => {
     (async () => {
       const { status } = await Notifications.requestPermissionsAsync();
@@ -67,23 +65,20 @@ export default function ScheduleAppointmentScreen({ navigation }: ScheduleAppoin
     }
   };
 
-  // Função para gerar um ID único simples
+  // Gerar ID único
   const generateUniqueId = () => {
     return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
   };
 
-  // Função para agendar a notificação da consulta
+  // Agendar notificação
   const scheduleAppointmentNotification = async (appointment: Appointment) => {
     const [day, month, year] = appointment.appointmentDate.split('/').map(Number);
     const [hours, minutes] = appointment.appointmentTime.split(':').map(Number);
-    
-    // Mês é 0-indexado em JavaScript Date (Janeiro = 0)
     const targetDate = new Date(year, month - 1, day, hours, minutes); 
 
-    // Verifica se a data e hora alvo já passaram
     if (targetDate.getTime() < new Date().getTime()) {
       console.warn("Não é possível agendar notificação para uma data/hora no passado.");
-      return undefined; // Não agendar se já passou
+      return undefined;
     }
 
     const notificationContent: Notifications.NotificationContentInput = {
@@ -91,18 +86,12 @@ export default function ScheduleAppointmentScreen({ navigation }: ScheduleAppoin
       body: `Sua consulta é em ${appointment.appointmentDate} às ${appointment.appointmentTime}. ${appointment.observations ? `Obs: ${appointment.observations}` : ''}`,
       data: { appointmentId: appointment.id, type: 'appointment_reminder' },
       sound: true,
-      // Para a imagem, a notificação padrão do sistema não tem essa UI customizada.
-      // Ações como "Soneca" e "Parar" podem ser configuradas, mas a visibilidade varia por OS.
-      // actions: [
-      //   { identifier: 'snooze', buttonTitle: 'Soneca', options: { opensApp: false } },
-      //   { identifier: 'stop', buttonTitle: 'Parar', options: { opensApp: false } }
-      // ],
     };
 
     try {
       const scheduledNotificationId = await Notifications.scheduleNotificationAsync({
         content: notificationContent,
-        trigger: targetDate, // Agendado para a data e hora exatas
+        trigger: targetDate,
       });
       console.log('Notificação de consulta agendada com ID:', scheduledNotificationId);
       return scheduledNotificationId;
@@ -113,83 +102,117 @@ export default function ScheduleAppointmentScreen({ navigation }: ScheduleAppoin
     }
   };
 
-
   const handleScheduleAppointment = async () => {
-    // Validação básica dos campos obrigatórios
     if (!doctorName || !appointmentDate || !appointmentTime) {
       Alert.alert("Erro", "Por favor, preencha todos os campos obrigatórios: Nome do Médico, Data e Horário.");
       return;
     }
 
-    // Cria o novo objeto de consulta
     const newAppointment: Appointment = {
       id: generateUniqueId(),
       doctorName,
-      appointmentDate: formatDate(appointmentDate), // Salva a data formatada
-      appointmentTime: formatTime(appointmentTime), // Salva a hora formatada
+      appointmentDate: formatDate(appointmentDate),
+      appointmentTime: formatTime(appointmentTime),
       observations,
     };
 
     let scheduledNotificationId: string | undefined;
     try {
-      // Agendar a notificação e obter o ID
       scheduledNotificationId = await scheduleAppointmentNotification(newAppointment);
       if (scheduledNotificationId) {
-        newAppointment.notificationId = scheduledNotificationId; // Salva o ID da notificação no objeto
+        newAppointment.notificationId = scheduledNotificationId;
       }
 
-      // Carrega as consultas existentes
       const storedAppointments = await AsyncStorage.getItem(APPOINTMENTS_STORAGE_KEY);
       let appointmentsArray: Appointment[] = storedAppointments ? JSON.parse(storedAppointments) : [];
-
-      // Adiciona a nova consulta ao array
       appointmentsArray.push(newAppointment);
-
-      // Salva o array atualizado de volta no AsyncStorage
       await AsyncStorage.setItem(APPOINTMENTS_STORAGE_KEY, JSON.stringify(appointmentsArray));
       
       Alert.alert("Sucesso", "Consulta agendada e lembrete configurado!");
-      navigation.goBack(); // Volta para a tela anterior
+      navigation.goBack();
     } catch (error) {
       console.error("Erro ao salvar consulta ou agendar notificação:", error);
       Alert.alert("Erro", "Não foi possível agendar a consulta ou o lembrete. Tente novamente.");
-      // Se a notificação foi agendada mas o salvamento falhou, tente cancelar a notificação
       if (scheduledNotificationId) {
         await Notifications.cancelScheduledNotificationAsync(scheduledNotificationId);
       }
     }
   };
 
-  // Helper para formatar a data para exibição
+  // Helper para formatar a data
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString('pt-BR'); // Ex: 14/06/2025
+    return date.toLocaleDateString('pt-BR');
   };
 
-  // Helper para formatar a hora para exibição
+  // Helper para formatar a hora
   const formatTime = (time: Date) => {
     return time.getHours().toString().padStart(2, '0') + ':' +
            time.getMinutes().toString().padStart(2, '0');
   };
 
+  // Determinar se o botão está ativo
+  const isActive = (routeName: string) => {
+    return route.name === routeName;
+  };
+
   return (
     <View style={styles.container}>
-      {/* Header - Logo e Slogan (mantendo o padrão das outras telas) */}
+      {/* Header - Logo e Slogan */}
       <View style={styles.header}>
-        <Text style={styles.logoText}></Text>
-        <Text style={styles.sloganText}></Text>
+        <Text style={styles.logoText}>Lembrete MedeCon</Text>
+        <Text style={styles.sloganText}>Seu assistente pessoal para medicamentos e consultas</Text>
+      </View>
+
+      {/* Barra de Navegação */}
+      <View style={styles.navigationBar}>
+        <View style={styles.navRow}>
+          <TouchableOpacity 
+            style={isActive('Lembretes') ? styles.navItemActive : styles.navItem} 
+            onPress={() => navigation.navigate('Lembretes')}
+          >
+            <Text style={isActive('Lembretes') ? styles.navTextActive : styles.navText}>
+              📱Tela inicial
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={isActive('Medicines') ? styles.navItemActive : styles.navItem} 
+            onPress={() => navigation.navigate('Medicines')}
+          >
+            <Text style={isActive('Medicines') ? styles.navTextActive : styles.navText}>
+              💊 Medicamentos
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.navRow}>
+          <TouchableOpacity 
+            style={isActive('MyAppointments') ? styles.navItemActive : styles.navItem} 
+            onPress={() => navigation.navigate('MyAppointments')}
+          >
+            <Text style={isActive('MyAppointments') ? styles.navTextActive : styles.navText}>
+              🗓️ Consultas
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={isActive('History') ? styles.navItemActive : styles.navItem} 
+            onPress={() => navigation.navigate('History')}
+          >
+            <Text style={isActive('History') ? styles.navTextActive : styles.navText}>
+              ⏰ Histórico
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollViewContent}>
         <View style={styles.formCard}>
           <View style={styles.formHeader}>
             <Text style={styles.formTitle}>Nova Consulta</Text>
-            {/* Botão de fechar/voltar */}
             <TouchableOpacity onPress={() => navigation.goBack()}>
               <Text style={styles.closeButton}>X</Text>
             </TouchableOpacity>
           </View>
 
-          {/* Campo Nome do Médico */}
           <Text style={styles.label}>Nome do Médico 🏥 🩺 *</Text>
           <TextInput
             style={styles.input}
@@ -199,29 +222,30 @@ export default function ScheduleAppointmentScreen({ navigation }: ScheduleAppoin
             onChangeText={setDoctorName}
           />
           
-          {/* Campo Data e Horário */}
           <View style={styles.dateTimeContainer}>
             <View style={styles.dateInputWrapper}>
               <Text style={styles.label}>Data ✏️*</Text>
-              <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.dateInput}>
+              <TouchableOpacity 
+                onPress={() => setShowDatePicker(true)} 
+                style={styles.dateInput}
+              >
                 <Text style={styles.dateInputText}>{formatDate(appointmentDate)}</Text>
                 <Text style={styles.dateIcon}>🗓️</Text>
               </TouchableOpacity>
             </View>
             <View style={styles.timeInputWrapper}>
               <Text style={styles.label}>Horário ⏰*</Text>
-              <TouchableOpacity onPress={() => setShowTimePicker(true)} style={styles.timeInput}>
+              <TouchableOpacity 
+                onPress={() => setShowTimePicker(true)} 
+                style={styles.timeInput}
+              >
                 <Text style={styles.timeInputText}>{formatTime(appointmentTime)}</Text>
                 <Text style={styles.timeIcon}>🕒</Text>
               </TouchableOpacity>
             </View>
           </View>
 
-          
-
-         
-          {
-          showDatePicker && (
+          {showDatePicker && (
             <DateTimePicker
               testID="datePicker"
               value={appointmentDate}
@@ -229,11 +253,9 @@ export default function ScheduleAppointmentScreen({ navigation }: ScheduleAppoin
               display="default"
               onChange={onDateChange}
             />
-          )
-          }
+          )}
       
-          {
-          showTimePicker && (
+          {showTimePicker && (
             <DateTimePicker
               testID="timePicker"
               value={appointmentTime}
@@ -242,10 +264,8 @@ export default function ScheduleAppointmentScreen({ navigation }: ScheduleAppoin
               display="default"
               onChange={onTimeChange}
             />
-          )
-          }
+          )}
 
-          {/* Campo Observações */}
           <Text style={styles.label}>Observações💡</Text>
           <TextInput
             style={[styles.input, styles.textArea]}
@@ -257,8 +277,10 @@ export default function ScheduleAppointmentScreen({ navigation }: ScheduleAppoin
             numberOfLines={3}
           />
 
-          {/* Botão Agendar Consulta */}
-          <TouchableOpacity style={styles.scheduleButton} onPress={handleScheduleAppointment}>
+          <TouchableOpacity 
+            style={styles.scheduleButton} 
+            onPress={handleScheduleAppointment}
+          >
             <Text style={styles.scheduleButtonText}>Agendar Consulta</Text>
           </TouchableOpacity>
         </View>
@@ -266,37 +288,87 @@ export default function ScheduleAppointmentScreen({ navigation }: ScheduleAppoin
     </View>
   );
 }
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F0F2F5', // Soft background color
+    backgroundColor: '#F0F2F5',
   },
   header: {
     alignItems: 'center',
-    paddingVertical: 35, // Aumentado
+    paddingVertical: 30,
     backgroundColor: '#F0F2F5',
   },
   logoText: {
-    fontSize: 32, // Aumentado
+    fontSize: 28,
     fontWeight: 'bold',
-    color: '#8A2BE2', // Cor original (roxo vibrante)
-    marginBottom: 8, // Aumentado
+    color: '#295700',
+    marginBottom: 5,
+    marginTop: 40,
   },
   sloganText: {
-    fontSize: 18, // Aumentado
+    fontSize: 16,
     color: '#666',
+  },
+  navigationBar: {
+    flexDirection: 'column',
+    backgroundColor: '#FFF',
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEE',
+    marginBottom: 20,
+    marginHorizontal: 10,
+    borderRadius: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  navRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 10,
+    paddingHorizontal: 10,
+  },
+  navItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginHorizontal: 5,
+  },
+  navItemActive: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: '#E6E6FA',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginHorizontal: 5,
+  },
+  navText: {
+    fontSize: 20,
+    color: '#295700',
+    fontWeight: '500',
+  },
+  navTextActive: {
+    fontSize: 20,
+    color: '#295700',
+    fontWeight: 'bold',
   },
   scrollViewContent: {
     paddingHorizontal: 20,
     paddingBottom: 30,
-    alignItems: 'center', // Centers the card on the screen
+    alignItems: 'center',
   },
   formCard: {
     backgroundColor: '#FFF',
     borderRadius: 15,
-    padding: 25, // Aumentado
-    width: '100%', // Takes almost full width
-    maxWidth: 400, // Limits width on larger screens for better readability
+    padding: 25,
+    width: '100%',
+    maxWidth: 400,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -307,72 +379,55 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 25, // Aumentado
+    marginBottom: 25,
   },
   formTitle: {
-    fontSize: 28, // Aumentado
+    fontSize: 28,
     fontWeight: 'bold',
-    color: '#00BFFF', // Revertido para #00BFFF (azul)
+    color: '#00BFFF',
   },
   closeButton: {
-    fontSize: 28, // Aumentado
+    fontSize: 28,
     color: '#888',
   },
   label: {
-    fontSize: 18, // Aumentado
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 10, // Aumentado
-    marginTop: 20, // Aumentado
+    marginBottom: 10,
+    marginTop: 20,
   },
   input: {
     backgroundColor: '#F7F7F7',
     borderRadius: 10,
-    paddingHorizontal: 18, // Aumentado
-    paddingVertical: 14, // Aumentado
-    fontSize: 18, // Aumentado
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    fontSize: 18,
     color: '#333',
     borderWidth: 1,
     borderColor: '#EEE',
-    marginBottom: 12, // Aumentado
-  },
-  pickerContainer: {
-    backgroundColor: '#F7F7F7',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#EEE',
-    marginBottom: 12, // Aumentado
-    overflow: 'hidden',
-  },
-  picker: {
-    height: 55, // Aumentado
-    width: '100%',
-    color: '#333',
-  },
-  pickerItem: {
-    fontSize: 18, // Aumentado
-    color: '#999', // Default color for picker items
+    marginBottom: 12,
   },
   dateTimeContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12, // Aumentado
+    marginBottom: 12,
   },
   dateInputWrapper: {
     flex: 1,
-    marginRight: 12, // Aumentado
+    marginRight: 12,
   },
   timeInputWrapper: {
     flex: 1,
-    marginLeft: 12, // Aumentado
+    marginLeft: 12,
   },
   dateInput: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F7F7F7',
     borderRadius: 10,
-    paddingHorizontal: 18, // Aumentado
-    paddingVertical: 14, // Aumentado
+    paddingHorizontal: 18,
+    paddingVertical: 14,
     borderWidth: 1,
     borderColor: '#EEE',
     justifyContent: 'space-between',
@@ -382,48 +437,48 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#F7F7F7',
     borderRadius: 10,
-    paddingHorizontal: 18, // Aumentado
-    paddingVertical: 14, // Aumentado
+    paddingHorizontal: 18,
+    paddingVertical: 14,
     borderWidth: 1,
     borderColor: '#EEE',
     justifyContent: 'space-between',
   },
   dateInputText: {
-    fontSize: 18, // Aumentado
+    fontSize: 18,
     color: '#333',
   },
   timeInputText: {
-    fontSize: 18, // Aumentado
+    fontSize: 18,
     color: '#333',
   },
   dateIcon: {
-    fontSize: 24, // Aumentado
+    fontSize: 24,
     color: '#888',
   },
   timeIcon: {
-    fontSize: 24, // Aumentado
+    fontSize: 24,
     color: '#888',
   },
   textArea: {
-    minHeight: 100, // Aumentado
+    minHeight: 100,
     textAlignVertical: 'top',
   },
   scheduleButton: {
-    backgroundColor: '#3498DB', // Mantido o azul para o botão
-    paddingVertical: 18, // Aumentado
-    borderRadius: 30, // Aumentado
+    backgroundColor: '#3498DB',
+    paddingVertical: 18,
+    borderRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 35, // Aumentado
+    marginTop: 35,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 5 }, // Aumentado
-    shadowOpacity: 0.4, // Aumentado
-    shadowRadius: 7, // Aumentado
-    elevation: 10, // Aumentado
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.4,
+    shadowRadius: 7,
+    elevation: 10,
   },
   scheduleButtonText: {
     color: '#FFF',
-    fontSize: 20, // Aumentado
+    fontSize: 20,
     fontWeight: 'bold',
   },
 });

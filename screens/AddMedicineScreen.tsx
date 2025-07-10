@@ -1,12 +1,13 @@
 // Este arquivo é o componente da tela "Adicionar Medicamento" em TSX.
-import React, { useState, useEffect } from 'react'; // 'JSX' removido - CORRIGIDO
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Platform, Alert } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import DateTimePicker from '@react-native-community/datetimepicker'; 
-import AsyncStorage from '@react-native-async-storage/async-storage'; 
-import * as Notifications from 'expo-notifications'; // Importar expo-notifications
+import DateTimePicker from '@react-native-community/datetimepicker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
+import { useRoute } from '@react-navigation/native';
 
-// Configuração para lidar com notificações quando o app está em foreground
+// Configuração para lidar com notificações
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -17,35 +18,35 @@ Notifications.setNotificationHandler({
 
 // Definindo a interface para o objeto de Medicamento
 interface Medicine {
-  id: string; // ID único para cada medicamento
+  id: string;
   medicineName: string;
-  dosage: string; // Quantidade de comprimidos
+  dosage: string;
   frequency: string;
-  time: string; // Horário no formato HH:MM
-  customFrequencyDate?: string; // Data específica se a frequência for 'custom_date'
+  time: string;
+  customFrequencyDate?: string;
   observations: string;
-  notificationId?: string; // ID da notificação agendada
+  notificationId?: string;
 }
 
-const MEDICINES_STORAGE_KEY = '@my_medicines'; // Chave para armazenar os medicamentos no AsyncStorage
+const MEDICINES_STORAGE_KEY = '@my_medicines';
 
 // Definindo o tipo para as props de navegação.
 interface AddMedicineScreenProps {
-  navigation: any; // Em um projeto real, você tiparia mais especificamente as rotas.
+  navigation: any;
 }
 
-export default function AddMedicineScreen({ navigation }: AddMedicineScreenProps): JSX.Element {
+export default function AddMedicineScreen({ navigation }: AddMedicineScreenProps) {
   const [medicineName, setMedicineName] = useState<string>('');
   const [dosage, setDosage] = useState<string>('');
   const [frequency, setFrequency] = useState<string>(''); 
   const [time, setTime] = useState<Date>(new Date());
   const [observations, setObservations] = useState<string>('');
-  
   const [showTimePicker, setShowTimePicker] = useState<boolean>(false);
   const [customFrequencyDate, setCustomFrequencyDate] = useState<Date>(new Date());
   const [showCustomDatePicker, setShowCustomDatePicker] = useState<boolean>(false);
+  const route = useRoute();
 
-  // Solicita permissões de notificação ao carregar a tela
+  // Solicita permissões de notificação
   useEffect(() => {
     (async () => {
       const { status } = await Notifications.requestPermissionsAsync();
@@ -78,12 +79,12 @@ export default function AddMedicineScreen({ navigation }: AddMedicineScreenProps
     }
   };
 
-  // Função para gerar um ID único simples (para fins de exemplo)
+  // Gerar ID único
   const generateUniqueId = () => {
     return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
   };
 
-  // Função para agendar a notificação
+  // Agendar notificação
   const scheduleMedicineNotification = async (medicine: Medicine) => {
     let trigger: Notifications.NotificationTriggerInput;
     const [hours, minutes] = medicine.time.split(':').map(Number);
@@ -92,29 +93,25 @@ export default function AddMedicineScreen({ navigation }: AddMedicineScreenProps
       trigger = {
         hour: hours,
         minute: minutes,
-        repeats: true, // Repete diariamente
+        repeats: true,
       };
     } else if (medicine.frequency === 'custom_date' && medicine.customFrequencyDate) {
       const [day, month, year] = medicine.customFrequencyDate.split('/').map(Number);
-      const targetDate = new Date(year, month - 1, day, hours, minutes); // Mês é 0-indexado
-
-      trigger = targetDate; // Para uma data e hora específicas, não se repete automaticamente
+      const targetDate = new Date(year, month - 1, day, hours, minutes);
+      trigger = targetDate;
     } else {
-      // Para 'every6hours', 'every8hours', 'weekly', etc., a lógica de agendamento é mais complexa.
-      // Por enquanto, vamos agendar apenas uma notificação inicial para esses casos.
       trigger = {
         hour: hours,
         minute: minutes,
-        repeats: false, // Não repete para simplicidade neste exemplo
+        repeats: false,
       };
     }
 
-    // Conteúdo da notificação
     const notificationContent: Notifications.NotificationContentInput = {
       title: `⏰ Lembrete de Medicamento: ${medicine.medicineName}`,
       body: `É hora de tomar ${medicine.dosage}.`,
-      data: { medicineId: medicine.id, type: 'medicine_reminder' }, // Dados que podem ser lidos ao clicar na notificação
-      sound: true, // Ativar som
+      data: { medicineId: medicine.id, type: 'medicine_reminder' },
+      sound: true,
     };
 
     try {
@@ -132,7 +129,6 @@ export default function AddMedicineScreen({ navigation }: AddMedicineScreenProps
   };
 
   const handleAddMedicine = async () => {
-    // Validação básica dos campos obrigatórios
     if (!medicineName || !dosage || !frequency || !time) {
       Alert.alert("Erro", "Por favor, preencha todos os campos obrigatórios.");
       return;
@@ -142,72 +138,108 @@ export default function AddMedicineScreen({ navigation }: AddMedicineScreenProps
       return;
     }
 
-    // Cria o novo objeto de medicamento
     const newMedicine: Medicine = {
-      id: generateUniqueId(), // Gera um ID único
+      id: generateUniqueId(),
       medicineName,
       dosage,
       frequency,
-      time: formatTime(time), // Garante que o formato HH:MM seja salvo
+      time: formatTime(time),
       customFrequencyDate: frequency === 'custom_date' ? customFrequencyDate.toLocaleDateString('pt-BR') : undefined,
       observations,
     };
 
     let scheduledNotificationId: string | undefined;
     try {
-      // Agendar a notificação e obter o ID
       scheduledNotificationId = await scheduleMedicineNotification(newMedicine);
       if (scheduledNotificationId) {
-        newMedicine.notificationId = scheduledNotificationId; // Salva o ID da notificação no objeto
+        newMedicine.notificationId = scheduledNotificationId;
       }
 
-      // Carrega os medicamentos existentes
       const storedMedicines = await AsyncStorage.getItem(MEDICINES_STORAGE_KEY);
       let medicinesArray: Medicine[] = storedMedicines ? JSON.parse(storedMedicines) : [];
-
-      // Adiciona o novo medicamento ao array
       medicinesArray.push(newMedicine);
-
-      // Salva o array atualizado de volta no AsyncStorage
       await AsyncStorage.setItem(MEDICINES_STORAGE_KEY, JSON.stringify(medicinesArray));
       
       Alert.alert("Sucesso", "Medicamento adicionado e lembrete agendado!");
-      navigation.goBack(); // Volta para a tela anterior
+      navigation.goBack();
     } catch (error) {
       console.error("Erro ao salvar medicamento ou agendar notificação:", error);
       Alert.alert("Erro", "Não foi possível adicionar o medicamento ou agendar o lembrete. Tente novamente.");
-      // Se a notificação foi agendada mas o salvamento falhou, tente cancelar a notificação
       if (scheduledNotificationId) {
         await Notifications.cancelScheduledNotificationAsync(scheduledNotificationId);
       }
     }
   };
 
-  // Helper para formatar a hora para exibição
+  // Formatador de hora
   const formatTime = (date: Date) => {
     return date.getHours().toString().padStart(2, '0') + ':' +
            date.getMinutes().toString().padStart(2, '0');
   };
 
+  // Verificador de botão ativo
+  const isActive = (routeName: string) => {
+    return route.name === routeName;
+  };
+
   return (
     <View style={styles.container}>
-      {/* Header - Logo e Slogan (mantendo o padrão das outras telas) */}
+      {/* Header - Logo e Slogan */}
       <View style={styles.header}>
-        <Text style={styles.logoText}></Text> {/* CORRIGIDO: Texto do logo adicionado */}
-        <Text style={styles.sloganText}></Text> {/* CORRIGIDO: Texto do slogan adicionado */}
+        <Text style={styles.logoText}>Lembrete MedeCon</Text>
+        <Text style={styles.sloganText}>Seu assistente pessoal para medicamentos e consultas</Text>
+      </View>
+
+      {/* Barra de Navegação */}
+      <View style={styles.navigationBar}>
+        <View style={styles.navRow}>
+          <TouchableOpacity 
+            style={isActive('Lembretes') ? styles.navItemActive : styles.navItem} 
+            onPress={() => navigation.navigate('Lembretes')}
+          >
+            <Text style={isActive('Lembretes') ? styles.navTextActive : styles.navText}>
+              📱Tela inicial
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={isActive('Medicines') ? styles.navItemActive : styles.navItem} 
+            onPress={() => navigation.navigate('Medicines')}
+          >
+            <Text style={isActive('Medicines') ? styles.navTextActive : styles.navText}>
+              💊 Medicamentos
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.navRow}>
+          <TouchableOpacity 
+            style={isActive('MyAppointments') ? styles.navItemActive : styles.navItem} 
+            onPress={() => navigation.navigate('MyAppointments')}
+          >
+            <Text style={isActive('MyAppointments') ? styles.navTextActive : styles.navText}>
+              🗓️ Consultas
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={isActive('History') ? styles.navItemActive : styles.navItem} 
+            onPress={() => navigation.navigate('History')}
+          >
+            <Text style={isActive('History') ? styles.navTextActive : styles.navText}>
+              ⏰ Histórico
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollViewContent}>
         <View style={styles.formCard}>
           <View style={styles.formHeader}>
             <Text style={styles.formTitle}>Novo Medicamento</Text>
-            {/* Botão de fechar/voltar */}
             <TouchableOpacity onPress={() => navigation.goBack()}>
               <Text style={styles.closeButton}>X</Text>
             </TouchableOpacity>
           </View>
 
-          {/* Campo Nome do Medicamento */}
           <Text style={styles.label}>Nome do Medicamento 💊 *</Text>
           <TextInput
             style={styles.input}
@@ -217,7 +249,6 @@ export default function AddMedicineScreen({ navigation }: AddMedicineScreenProps
             onChangeText={setMedicineName}
           />
 
-          {/* Campo Dosagem (agora para quantidade de comprimidos) */}
           <Text style={styles.label}>Quantidade de Comprimidos 🧮*</Text>
           <TextInput
             style={styles.input}
@@ -228,7 +259,6 @@ export default function AddMedicineScreen({ navigation }: AddMedicineScreenProps
             keyboardType="numeric"
           />
 
-          {/* Campo Frequência */}
           <Text style={styles.label}>Frequência 📝*</Text>
           <View style={styles.pickerContainer}>
             <Picker
@@ -246,15 +276,16 @@ export default function AddMedicineScreen({ navigation }: AddMedicineScreenProps
             </Picker>
           </View>
 
-          {/* Exibe a data personalizada se a frequência for 'custom_date' */}
           {frequency === 'custom_date' && (
-            <TouchableOpacity onPress={() => setShowCustomDatePicker(true)} style={styles.customDateDisplay}>
+            <TouchableOpacity 
+              onPress={() => setShowCustomDatePicker(true)} 
+              style={styles.customDateDisplay}
+            >
               <Text style={styles.customDateText}>Data Selecionada: {customFrequencyDate.toLocaleDateString('pt-BR')}</Text>
               <Text style={styles.dateIcon}>🗓️</Text>
             </TouchableOpacity>
           )}
 
-          {/* Seletor de Data para Frequência Personalizada */}
           {showCustomDatePicker && frequency === 'custom_date' && (
             <DateTimePicker
               testID="customDatePicker"
@@ -265,17 +296,18 @@ export default function AddMedicineScreen({ navigation }: AddMedicineScreenProps
             />
           )}
 
-          {/* Campo Horário */}
           <Text style={styles.label}>Horário ⏰ *</Text>
-          <TouchableOpacity onPress={() => setShowTimePicker(true)} style={styles.timeInputContainer}>
+          <TouchableOpacity 
+            onPress={() => setShowTimePicker(true)} 
+            style={styles.timeInputContainer}
+          >
             <Text style={styles.timeInputText}>
               {formatTime(time)}
             </Text>
             <Text style={styles.timeIcon}>🕒</Text>
           </TouchableOpacity>
           
-          {
-          showTimePicker && (
+          {showTimePicker && (
             <DateTimePicker
               testID="timePicker"
               value={time}
@@ -284,10 +316,8 @@ export default function AddMedicineScreen({ navigation }: AddMedicineScreenProps
               display="default"
               onChange={onTimeChange}
             />
-          )
-          }
+          )}
 
-          {/* Campo Observações */}
           <Text style={styles.label}>Observações 🔎</Text>
           <TextInput
             style={[styles.input, styles.textArea]}
@@ -299,8 +329,10 @@ export default function AddMedicineScreen({ navigation }: AddMedicineScreenProps
             numberOfLines={3}
           />
 
-          {/* Botão Adicionar Medicamento */}
-          <TouchableOpacity style={styles.addButton} onPress={handleAddMedicine}>
+          <TouchableOpacity 
+            style={styles.addButton} 
+            onPress={handleAddMedicine}
+          >
             <Text style={styles.addButtonText}>Adicionar Medicamento</Text>
           </TouchableOpacity>
         </View>
@@ -309,42 +341,87 @@ export default function AddMedicineScreen({ navigation }: AddMedicineScreenProps
   );
 }
 
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F0F2F5', // Soft background color
-  },
-  dateIcon:{ // Removido pois era um estilo vazio e não utilizado.
-    // CORRIGIDO: Adicionado estilo textAlign para centralizar slogan
+    backgroundColor: '#F0F2F5',
   },
   header: {
     alignItems: 'center',
-    paddingVertical: 35, // Aumentado para consistência
+    paddingVertical: 30,
     backgroundColor: '#F0F2F5',
   },
   logoText: {
-    fontSize: 32, // Aumentado para consistência
+    fontSize: 28,
     fontWeight: 'bold',
-    color: '#8A2BE2', // Cor original (roxo vibrante)
-    marginBottom: 8, // Aumentado para consistência
+    color: '#295700',
+    marginBottom: 5,
+    marginTop: 40,
   },
   sloganText: {
-    fontSize: 18, // Aumentado para consistência
+    fontSize: 16,
     color: '#666',
-    textAlign: 'center' // CORRIGIDO: Adicionado para centralizar o slogan
+    textAlign: 'center'
+  },
+  navigationBar: {
+    flexDirection: 'column',
+    backgroundColor: '#FFF',
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEE',
+    marginBottom: 20,
+    marginHorizontal: 10,
+    borderRadius: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  navRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 10,
+    paddingHorizontal: 10,
+  },
+  navItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginHorizontal: 5,
+  },
+  navItemActive: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: '#E6E6FA',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginHorizontal: 5,
+  },
+  navText: {
+    fontSize: 20,
+    color: '#295700',
+    fontWeight: '500',
+  },
+  navTextActive: {
+    fontSize: 20,
+    color: '#295700',
+    fontWeight: 'bold',
   },
   scrollViewContent: {
     paddingHorizontal: 20,
     paddingBottom: 30,
-    alignItems: 'center', // Centers the card on the screen
+    alignItems: 'center',
   },
   formCard: {
     backgroundColor: '#FFF',
     borderRadius: 15,
-    padding: 25, // Aumentado
-    width: '100%', // Takes almost full width
-    maxWidth: 400, // Limits width on larger screens for better readability
+    padding: 25,
+    width: '100%',
+    maxWidth: 400,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -355,109 +432,109 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 25, // Aumentado
+    marginBottom: 25,
   },
   formTitle: {
-    fontSize: 28, // Aumentado
+    fontSize: 28,
     fontWeight: 'bold',
-    color: '#3498DB', 
+    color: '#3498DB',
   },
   closeButton: {
-    fontSize: 28, // Aumentado
+    fontSize: 28,
     color: '#888',
   },
   label: {
-    fontSize: 18, // Aumentado
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 10, // Aumentado
-    marginTop: 20, // Aumentado
+    marginBottom: 10,
+    marginTop: 20,
   },
   input: {
     backgroundColor: '#F7F7F7',
     borderRadius: 10,
-    paddingHorizontal: 18, // Aumentado
-    paddingVertical: 14, // Aumentado
-    fontSize: 18, // Aumentado
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    fontSize: 18,
     color: '#333',
     borderWidth: 1,
     borderColor: '#EEE',
-    marginBottom: 12, // Aumentado
+    marginBottom: 12,
   },
   pickerContainer: {
     backgroundColor: '#F7F7F7',
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#EEE',
-    marginBottom: 12, // Aumentado
+    marginBottom: 12,
     overflow: 'hidden',
   },
   picker: {
-    height: 55, // Aumentado
+    height: 55,
     width: '100%',
     color: '#333',
   },
   pickerItem: {
-    fontSize: 18, // Aumentado
-    color: '#999', // Default color for picker items
+    fontSize: 18,
+    color: '#999',
   },
-  timeInputContainer: { // Renomeado de dateInput para timeInputContainer para consistência
+  timeInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F7F7F7',
     borderRadius: 10,
-    paddingHorizontal: 18, // Aumentado
-    paddingVertical: 14, // Aumentado
+    paddingHorizontal: 18,
+    paddingVertical: 14,
     borderWidth: 1,
     borderColor: '#EEE',
     justifyContent: 'space-between',
   },
-  timeInputText: { // Renomeado de dateInputText para timeInputText
-    fontSize: 18, // Aumentado
+  timeInputText: {
+    fontSize: 18,
     color: '#333',
   },
-  timeIcon: { // Renomeado de dateIcon para timeIcon
-    fontSize: 24, // Aumentado
+  timeIcon: {
+    fontSize: 24,
     color: '#888',
   },
   textArea: {
-    minHeight: 100, // Aumentado
+    minHeight: 100,
     textAlignVertical: 'top',
   },
   addButton: {
     backgroundColor: '#3498DB', 
-    paddingVertical: 18, // Aumentado
-    borderRadius: 30, // Aumentado
+    paddingVertical: 18,
+    borderRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 35, // Aumentado
+    marginTop: 35,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 5 }, // Aumentado
-    shadowOpacity: 0.4, // Aumentado
-    shadowRadius: 7, // Aumentado
-    elevation: 10, // Aumentado
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.4,
+    shadowRadius: 7,
+    elevation: 10,
   },
   addButtonText: {
     color: '#FFF',
-    fontSize: 20, // Aumentado
+    fontSize: 20,
     fontWeight: 'bold',
   },
   customDateDisplay: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E6E6FA', // Cor de fundo suave para o display da data
+    backgroundColor: '#E6E6FA',
     borderRadius: 10,
     paddingHorizontal: 18,
     paddingVertical: 14,
-    marginTop: 10, // Espaço acima
-    marginBottom: 12, // Espaço abaixo
+    marginTop: 10,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#CCC',
     justifyContent: 'space-between',
   },
   customDateText: {
     fontSize: 16,
-    color: '#8A2BE2', // Cor do texto da data
+    color: '#8A2BE2',
     fontWeight: 'bold',
   },
 });

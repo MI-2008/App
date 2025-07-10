@@ -1,30 +1,31 @@
 // This file is the "My Appointments" screen component in TSX.
-import React, { useState, useEffect, useCallback, JSX } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // Importar AsyncStorage
-import { useFocusEffect } from '@react-navigation/native'; // Para recarregar dados ao focar na tela
-import * as Notifications from 'expo-notifications'; // Importar expo-notifications para cancelar notificações
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect, useRoute } from '@react-navigation/native';
+import * as Notifications from 'expo-notifications';
 
 // Definindo o tipo para as props de navegação.
 interface MyAppointmentsScreenProps {
-  navigation: any; // 'any' type is used for simplicity; in a real project, you'd type it more specifically.
+  navigation: any;
 }
 
-// Definindo a interface para o objeto de Consulta (consistente com ScheduleAppointmentScreen)
+// Definindo a interface para o objeto de Consulta
 interface Appointment {
-  id: string; // ID único para cada consulta
+  id: string;
   doctorName: string;
-  appointmentDate: string; // Data no formato local (DD/MM/AAAA)
-  appointmentTime: string; // Horário no formato HH:MM
+  appointmentDate: string;
+  appointmentTime: string;
   observations: string;
-  notificationId?: string; // ID da notificação agendada
+  notificationId?: string;
 }
 
-const APPOINTMENTS_STORAGE_KEY = '@my_appointments'; // Chave para armazenar as consultas no AsyncStorage
+const APPOINTMENTS_STORAGE_KEY = '@my_appointments';
 
-export default function MyAppointmentsScreen({ navigation }: MyAppointmentsScreenProps): JSX.Element {
+export default function MyAppointmentsScreen({ navigation }: MyAppointmentsScreenProps) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const route = useRoute(); // Hook para obter a rota atual
 
   // Função para carregar as consultas do AsyncStorage
   const loadAppointments = useCallback(async () => {
@@ -34,7 +35,7 @@ export default function MyAppointmentsScreen({ navigation }: MyAppointmentsScree
       if (storedAppointments) {
         setAppointments(JSON.parse(storedAppointments));
       } else {
-        setAppointments([]); // Garante que seja um array vazio se não houver nada
+        setAppointments([]);
       }
     } catch (error) {
       console.error("Erro ao carregar consultas:", error);
@@ -44,14 +45,11 @@ export default function MyAppointmentsScreen({ navigation }: MyAppointmentsScree
     }
   }, []);
 
-  // Usa useFocusEffect para recarregar as consultas sempre que a tela é focada
-  // Isso garante que a lista seja atualizada após agendar uma nova consulta
+  // Recarregar consultas ao focar na tela
   useFocusEffect(
     useCallback(() => {
       loadAppointments();
-      return () => {
-        // Opcional: qualquer limpeza ao sair do foco da tela
-      };
+      return () => {};
     }, [loadAppointments])
   );
 
@@ -91,33 +89,56 @@ export default function MyAppointmentsScreen({ navigation }: MyAppointmentsScree
     );
   };
 
+  // Determinar se o botão está ativo baseado na rota atual
+  const isActive = (routeName: string) => {
+    return route.name === routeName;
+  };
+
   return (
     <View style={styles.container}>
       {/* Header - Logo and Slogan */}
       <View style={styles.header}>
-        <Text style={styles.logoText}>Lembrete MedeCom</Text>
-        <Text style={styles.sloganText}>Seu assistente pessoal para medicamentos e consultas</Text>
+        <Text style={styles.logoText}>🏥Lembrete Consultas🩺</Text>
+        <Text style={styles.sloganText}></Text>
       </View>
 
-{/* Navigation Bar */}
+      {/* Navigation Bar */}
       <View style={styles.navigationBar}>
-        {/* Primeira linha de botões */}
         <View style={styles.navRow}>
-          <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Lembretes')}>
-            <Text style={styles.navText}>📱Tela inicial</Text> 
+          <TouchableOpacity 
+            style={isActive('Lembretes') ? styles.navItemActive : styles.navItem} 
+            onPress={() => navigation.navigate('Lembretes')}
+          >
+            <Text style={isActive('Lembretes') ? styles.navTextActive : styles.navText}>
+              📱Tela inicial
+            </Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Medicines')}>
-            <Text style={styles.navText}>💊 Medicamentos</Text>
+          <TouchableOpacity 
+            style={isActive('Medicines') ? styles.navItemActive : styles.navItem} 
+            onPress={() => navigation.navigate('Medicines')}
+          >
+            <Text style={isActive('Medicines') ? styles.navTextActive : styles.navText}>
+              💊 Medicamentos
+            </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Segunda linha de botões */}
         <View style={styles.navRow}>
-          <View style={styles.navItemActive}> {/* "Consultas" item active */}
-            <Text style={styles.navTextActive}>🗓️ Consultas</Text>
-          </View>
-          <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('History')}>
-            <Text style={styles.navText}>⏰ Histórico</Text>
+          <TouchableOpacity 
+            style={isActive('MyAppointments') ? styles.navItemActive : styles.navItem} 
+            onPress={() => navigation.navigate('MyAppointments')}
+          >
+            <Text style={isActive('MyAppointments') ? styles.navTextActive : styles.navText}>
+              🗓️ Consultas
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={isActive('History') ? styles.navItemActive : styles.navItem} 
+            onPress={() => navigation.navigate('History')}
+          >
+            <Text style={isActive('History') ? styles.navTextActive : styles.navText}>
+              ⏰ Histórico
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -127,7 +148,8 @@ export default function MyAppointmentsScreen({ navigation }: MyAppointmentsScree
           <Text style={styles.appointmentsTitle}>Minhas Consultas</Text>
           <TouchableOpacity
             style={styles.scheduleButton}
-            onPress={() => navigation.navigate('ScheduleAppointment')}>          
+            onPress={() => navigation.navigate('ScheduleAppointment')}
+          >
             <Text style={styles.scheduleButtonText}>📅 Agendar Consulta</Text>
           </TouchableOpacity>
         </View>
@@ -177,33 +199,33 @@ export default function MyAppointmentsScreen({ navigation }: MyAppointmentsScree
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F0F2F5', // Soft background color
+    backgroundColor: '#F0F2F5',
   },
   header: {
     alignItems: 'center',
-    paddingVertical: 30, // Aumentado para 30 para empurrar o título para baixo
-    backgroundColor: '#F0F2F5', // Header background
+    paddingVertical: 30,
+    backgroundColor: '#F0F2F5',
   },
   logoText: {
-    fontSize: 28,
+    fontSize: 29,
     fontWeight: 'bold',
-    color: '#295700', // Cor vibrante para o logo (roxo)
+    color: '#295700',
     marginBottom: 5,
-    marginTop:40,
+    marginTop: 40,
   },
   sloganText: {
     fontSize: 16,
     color: '#666',
   },
   navigationBar: {
-    flexDirection: 'column', // Alterado para coluna para as linhas de botões
+    flexDirection: 'column',
     backgroundColor: '#FFF',
     paddingVertical: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#EEE',
     marginBottom: 20,
     marginHorizontal: 10,
-    borderRadius: 15, // Cantos arredondados para a barra de navegação
+    borderRadius: 15,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -211,27 +233,27 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   navRow: {
-    flexDirection: 'row', // Cada linha de botões é uma linha
-    justifyContent: 'space-around', // Distribui os itens igualmente
-    marginBottom: 10, // Espaço entre as linhas de botões
-    paddingHorizontal: 10, // Espaçamento horizontal dentro da linha
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 10,
+    paddingHorizontal: 10,
   },
   navItem: {
-    flex: 1, // Faz os itens ocuparem o mesmo espaço
+    flex: 1,
     alignItems: 'center',
     paddingHorizontal: 15,
     paddingVertical: 8,
-    borderRadius: 20, // Mais redondo para os botões
-    marginHorizontal: 5, // Espaço entre os botões na mesma linha
+    borderRadius: 20,
+    marginHorizontal: 5,
   },
   navItemActive: {
-    flex: 1, // Faz os itens ocuparem o mesmo espaço
+    flex: 1,
     alignItems: 'center',
-    backgroundColor: '#E6E6FA', // Fundo claro para o item ativo (lavanda)
+    backgroundColor: '#E6E6FA', // Lilás acinzentado para item ativo
     paddingHorizontal: 15,
     paddingVertical: 8,
-    borderRadius: 20, // Mais redondo para o botão ativo
-    marginHorizontal: 5, // Espaço entre os botões na mesma linha
+    borderRadius: 20,
+    marginHorizontal: 5,
   },
   navText: {
     fontSize: 20,
@@ -240,7 +262,7 @@ const styles = StyleSheet.create({
   },
   navTextActive: {
     fontSize: 20,
-    color: '#295700', // Cor do texto do item ativo
+    color: '#295700',
     fontWeight: 'bold',
   },
   scrollViewContent: {
@@ -280,7 +302,7 @@ const styles = StyleSheet.create({
     padding: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 200, // Minimum height to center content
+    minHeight: 200,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -288,8 +310,8 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   noAppointmentsIcon: {
-    fontSize: 60, // Large size for the icon
-    color: '#CCC', // Light gray color for the icon
+    fontSize: 60,
+    color: '#CCC',
     marginBottom: 15,
   },
   noAppointmentsTitle: {
@@ -304,8 +326,7 @@ const styles = StyleSheet.create({
     color: '#999',
     textAlign: 'center',
   },
-
-   loadingContainer: {
+  loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
@@ -331,7 +352,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   appointmentInfo: {
-    flex: 1, // Ocupa o espaço restante
+    flex: 1,
   },
   appointmentName: {
     fontSize: 18,
@@ -351,7 +372,7 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     padding: 8,
-    backgroundColor: '#FF6347', // Tomate
+    backgroundColor: '#FF6347',
     borderRadius: 5,
     marginLeft: 10,
   },
@@ -360,4 +381,3 @@ const styles = StyleSheet.create({
     color: '#FFF',
   },
 });
-  

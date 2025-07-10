@@ -1,52 +1,52 @@
 // Este arquivo é o componente da tela "Histórico de Saúde" em TSX.
-import React, { useState, useEffect, useCallback, JSX } from 'react'; // 'JSX' removido
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // Importar AsyncStorage
-import { useFocusEffect } from '@react-navigation/native'; // Para recarregar dados ao focar na tela
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 
 // Definindo a interface para o objeto de Medicamento
 interface Medicine {
-  id: string; // ID único para cada medicamento
+  id: string;
   medicineName: string;
-  dosage: string; // Quantidade de comprimidos
+  dosage: string;
   frequency: string;
-  time: string; // Horário no formato HH:MM
-  customFrequencyDate?: string; // Data específica se a frequência for 'custom_date'
+  time: string;
+  customFrequencyDate?: string;
   observations: string;
 }
 
 // Definindo a interface para o objeto de Consulta
 interface Appointment {
-  id: string; // ID único para cada consulta
+  id: string;
   doctorName: string;
-  appointmentDate: string; // Data no formato local (DD/MM/AAAA)
-  appointmentTime: string; // Horário no formato HH:MM
+  appointmentDate: string;
+  appointmentTime: string;
   observations: string;
 }
 
-const MEDICINES_STORAGE_KEY = '@my_medicines'; // Chave para armazenar os medicamentos no AsyncStorage
-const APPOINTMENTS_STORAGE_KEY = '@my_appointments'; // Chave para armazenar as consultas no AsyncStorage
+const MEDICINES_STORAGE_KEY = '@my_medicines';
+const APPOINTMENTS_STORAGE_KEY = '@my_appointments';
 
 // Definindo o tipo para as props de navegação.
 interface HistoryScreenProps {
-  navigation: any; // 'any' type é usado para simplificar; em um projeto real, você tiparia mais especificamente.
+  navigation: any;
 }
 
-export default function HistoryScreen({ navigation }: HistoryScreenProps): JSX.Element {
+export default function HistoryScreen({ navigation }: HistoryScreenProps) {
   const [takenMedicines, setTakenMedicines] = useState<Medicine[]>([]);
   const [completedAppointments, setCompletedAppointments] = useState<Appointment[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Helper para formatar a data para exibição
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString('pt-BR'); // Ex: 14/06/2025
+    return date.toLocaleDateString('pt-BR');
   };
 
-  // Helper para criar um objeto Date completo a partir de data e hora
+  // Helper para criar um objeto Date completo
   const createDateTimeObject = (dateString: string, timeString: string): Date => {
     const [day, month, year] = dateString.split('/').map(Number);
     const [hours, minutes] = timeString.split(':').map(Number);
-    return new Date(year, month - 1, day, hours, minutes); // Mês é 0-indexado
+    return new Date(year, month - 1, day, hours, minutes);
   };
 
   // Função para carregar e filtrar o histórico
@@ -69,8 +69,6 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps): JSX.E
         if (medicine.frequency === 'custom_date' && medicine.customFrequencyDate) {
           medicineDateTime = createDateTimeObject(medicine.customFrequencyDate, medicine.time);
         } else {
-          // Para frequências diárias ou outras, consideramos o horário do dia atual
-          // Se o horário já passou hoje, consideramos que foi "tomado"
           const [hours, minutes] = medicine.time.split(':').map(Number);
           medicineDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
         }
@@ -88,10 +86,12 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps): JSX.E
         }
       });
 
-      // Opcional: Ordenar por data (mais recente primeiro)
+      // Ordenar por data
       pastMedicines.sort((a, b) => {
-        const dateA = a.customFrequencyDate ? createDateTimeObject(a.customFrequencyDate, a.time) : new Date(); // Simplificado para fins de ordenação se não for custom_date
-        const dateB = b.customFrequencyDate ? createDateTimeObject(b.customFrequencyDate, b.time) : new Date(); // Simplificado
+        const dateA = a.customFrequencyDate ? 
+          createDateTimeObject(a.customFrequencyDate, a.time) : new Date();
+        const dateB = b.customFrequencyDate ? 
+          createDateTimeObject(b.customFrequencyDate, b.time) : new Date();
         return dateB.getTime() - dateA.getTime();
       });
 
@@ -112,13 +112,11 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps): JSX.E
     }
   }, []);
 
-  // Usa useFocusEffect para recarregar o histórico sempre que a tela é focada
+  // Recarregar ao focar na tela
   useFocusEffect(
     useCallback(() => {
       loadHistory();
-      return () => {
-        // Opcional: qualquer limpeza ao sair do foco da tela
-      };
+      return () => {};
     }, [loadHistory])
   );
 
@@ -126,35 +124,42 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps): JSX.E
     <View style={styles.container}>
       {/* Cabeçalho - Logo e Slogan */}
       <View style={styles.header}>
-        <Text style={styles.logoText}>Lembrete MedeCon</Text> {/* Ajustado conforme sua solicitação */}
-        <Text style={styles.sloganText}>Seu assistente pessoal para medicamentos e consultas</Text>
+        <Text style={styles.logoText}>✅ Histórico de Lembretes 🗃</Text>
+        <Text style={styles.sloganText}></Text>
       </View>
 
       {/* Barra de Navegação */}
       <View style={styles.navigationBar}>
         <View style={styles.navRow}>
-          <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Lembretes')}>
-            <Text style={styles.navText}>📱Tela inicial</Text> {/* Mantido conforme sua solicitação */}
+          <TouchableOpacity 
+            style={styles.navItem} 
+            onPress={() => navigation.navigate('Lembretes')}
+          >
+            <Text style={styles.navText}>📱Tela inicial</Text>
           </TouchableOpacity>
-          {/* O item "Medicamentos" agora é um navItem normal */}
-          <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Medicines')}>
+          <TouchableOpacity 
+            style={styles.navItem} 
+            onPress={() => navigation.navigate('Medicines')}
+          >
             <Text style={styles.navText}>💊 Medicamentos</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Segunda linha de botões */}
         <View style={styles.navRow}>
-          <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('MyAppointments')}>
+          <TouchableOpacity 
+            style={styles.navItem} 
+            onPress={() => navigation.navigate('MyAppointments')}
+          >
             <Text style={styles.navText}>🗓️ Consultas</Text>
           </TouchableOpacity>
-          <View style={styles.navItemActive}> {/* Item "Histórico" ativo */}
+          <View style={styles.navItemActive}>
             <Text style={styles.navTextActive}>⏰ Histórico</Text>
           </View>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollViewContent}>
-        <Text style={styles.historyTitle}>Histórico de Saúde 🩺✅</Text> {/* Ajustado font size e alinhamento */}
+        <Text style={styles.historyTitle}>✅  Histórico  ✅</Text>
 
         {isLoading ? (
           <View style={styles.loadingContainer}>
@@ -165,7 +170,7 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps): JSX.E
           <View style={styles.historyCardsContainer}>
             {/* Card: Medicamentos Tomados */}
             <View style={styles.historyCard}>
-              <Text style={styles.historyCardTitle}>Medicamentos Tomados 📌</Text> {/* Ajustado font size e alinhamento */}
+              <Text style={styles.historyCardTitle}>Medicamentos Tomados 📌</Text>
               {takenMedicines.length === 0 ? (
                 <Text style={styles.historyEmptyText}>Nenhum medicamento tomado ainda</Text> 
               ) : (
@@ -201,28 +206,27 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps): JSX.E
   );
 }
 
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F0F2F5', // Cor de fundo suave
+    backgroundColor: '#F0F2F5',
   },
   header: {
     alignItems: 'center',
-    paddingVertical: 30, // Mantido conforme seu código
+    paddingVertical: 30,
     backgroundColor: '#F0F2F5',
   },
   logoText: {
-    fontSize: 28, // Mantido conforme seu código
+    fontSize: 28,
     fontWeight: 'bold',
-    color: '#295700', // Mantido conforme seu código
-    marginBottom: 5, // Mantido conforme seu código
-    marginTop: 40, // Mantido conforme seu código
+    color: '#295700',
+    marginBottom: 5,
+    marginTop: 40,
   },
   sloganText: {
-    fontSize: 16, // Mantido conforme seu código
+    fontSize: 16,
     color: '#666',
-    textAlign: 'center' // Adicionado para centralizar
+    textAlign: 'center'
   },
   navigationBar: {
     flexDirection: 'column',
@@ -256,20 +260,20 @@ const styles = StyleSheet.create({
   navItemActive: {
     flex: 1,
     alignItems: 'center',
-    backgroundColor: '#E6E6FA', // Fundo claro para o item ativo (lavanda)
+    backgroundColor: '#E6E6FA',
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 20,
     marginHorizontal: 5,
   },
   navText: {
-    fontSize: 20, // Mantido conforme seu código
-    color: '#295700', // Mantido conforme seu código
+    fontSize: 20,
+    color: '#295700',
     fontWeight: '500',
   },
   navTextActive: {
-    fontSize: 20, // Mantido conforme seu código
-    color: '#295700', // Mantido conforme seu código
+    fontSize: 20,
+    color: '#295700',
     fontWeight: 'bold',
   },
   scrollViewContent: {
@@ -277,11 +281,11 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   historyTitle: {
-    fontSize: 22, // Mantido conforme seu código, mas adicionado textAlign
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#333',
     marginBottom: 20,
-    textAlign: 'center', // Adicionado para centralizar
+    textAlign: 'center',
   },
   historyCardsContainer: {
     flexDirection: 'row',
@@ -292,7 +296,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     borderRadius: 15,
     padding: 20,
-    width: '100%', // Alterado para 100% para uma coluna, mais legível no mobile
+    width: '100%',
     marginBottom: 15,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -301,23 +305,23 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   historyCardTitle: {
-    fontSize: 18, // Mantido conforme seu código, mas adicionado textAlign
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#295700', 
     marginBottom: 10,
-    textAlign: 'center', // Adicionado para centralizar
+    textAlign: 'center',
   },
   historyEmptyText: {
-    fontSize: 15, // Mantido conforme seu código, mas adicionado textAlign
+    fontSize: 15,
     color: '#777',
-    textAlign: 'center', // Adicionado para centralizar
+    textAlign: 'center',
     marginTop: 10,
   },
   historyItemText: {
     fontSize: 16,
     color: '#555',
     marginBottom: 5,
-    lineHeight: 24, // Melhorar legibilidade
+    lineHeight: 24,
   },
   loadingContainer: {
     flex: 1,
